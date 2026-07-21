@@ -3,19 +3,19 @@ package com.rubencamero.finflow.domain.valueobject;
 import java.util.Objects;
 import java.util.UUID;
 
-public final class UserId {
+public final class OwnerId {
     private final UUID value;
 
-    private UserId(UUID value) {
+    private OwnerId(UUID value) {
         this.value = Objects.requireNonNull(value);
     }
 
-    public static UserId generate() {
-        return new UserId(UUID.randomUUID());
+    public static OwnerId generate() {
+        return new OwnerId(UUID.randomUUID());
     }
 
-    public static UserId of(UUID value) {
-        return new UserId(value);
+    public static OwnerId of(UUID value) {
+        return new OwnerId(value);
     }
 
     public UUID value() {
