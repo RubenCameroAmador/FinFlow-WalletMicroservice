@@ -14,14 +14,29 @@ import java.util.Objects;
 
 public class Wallet {
 
-    private final WalletId id;
-    private final OwnerId ownerId;
+    private WalletId id;
+    private OwnerId ownerId;
     private Money balance;
     private WalletStatus status;
-    private final LocalDateTime createdAt;
+    private LocalDateTime createdAt;
     private final List<DomainEvent> events;
 
-    public Wallet(OwnerId ownerId , Money initialBalance, WalletStatus status) {
+    public static Wallet reconstitute(WalletId id, OwnerId ownerId, Money balance,
+                                      WalletStatus status, LocalDateTime createdAt) {
+        Wallet wallet = new Wallet();
+        wallet.id = Objects.requireNonNull(id);
+        wallet.ownerId = Objects.requireNonNull(ownerId);
+        wallet.balance = Objects.requireNonNull(balance);
+        wallet.status = Objects.requireNonNull(status);
+        wallet.createdAt = Objects.requireNonNull(createdAt);
+        return wallet;
+    }
+
+    private Wallet() {
+        this.events = new ArrayList<>();
+    }
+
+    public Wallet(OwnerId ownerId, Money initialBalance, WalletStatus status) {
         this.id = WalletId.generate();
         this.ownerId = Objects.requireNonNull(ownerId, "OwnerId cannot be null");
         this.balance = Objects.requireNonNull(initialBalance, "initial balance cannot be null");
