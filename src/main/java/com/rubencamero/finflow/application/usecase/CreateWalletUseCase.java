@@ -19,8 +19,7 @@ public class CreateWalletUseCase {
    public Wallet execute(CreateWalletCommand command){
         Wallet wallet = new Wallet(
                 command.ownerId(),
-                command.initialBalance(),
-                command.status()
+                command.initialBalance()
         );
 
         Wallet saved = walletRepository.save(wallet);

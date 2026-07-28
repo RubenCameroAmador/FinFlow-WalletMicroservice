@@ -36,11 +36,11 @@ public class Wallet {
         this.events = new ArrayList<>();
     }
 
-    public Wallet(OwnerId ownerId, Money initialBalance, WalletStatus status) {
+    public Wallet(OwnerId ownerId, Money initialBalance) {
         this.id = WalletId.generate();
         this.ownerId = Objects.requireNonNull(ownerId, "OwnerId cannot be null");
         this.balance = Objects.requireNonNull(initialBalance, "initial balance cannot be null");
-        this.status = Objects.requireNonNull(status);
+        this.status = WalletStatus.ACTIVE;
         this.createdAt = LocalDateTime.now();
         this.events = new ArrayList<>();
 
@@ -92,7 +92,7 @@ public class Wallet {
 
         if (this.status == WalletStatus.FROZEN){
             throw new InvalidWalletException(
-                    "Wallet is Frozen, you can not deposit money"
+                    "Wallet is Frozen, cannot deposit money"
             )   ;
         }
 
@@ -108,13 +108,13 @@ public class Wallet {
             )   ;
         }
 
-        Money newBalance = this.balance.subtract(amount);
-
-        if(newBalance.isNegative()){
+        if (this.balance.isLessThan(amount)){
             throw new InvalidWalletException(
                     "Insufficient balance."
             );
         }
+
+        Money newBalance = this.balance.subtract(amount);
 
         addEvent(new MoneyWithdrawn(this.id, this.ownerId, this.balance, amount));
 

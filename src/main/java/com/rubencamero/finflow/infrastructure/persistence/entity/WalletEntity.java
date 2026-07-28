@@ -19,7 +19,7 @@ public class WalletEntity {
     @Id
     private UUID walletId;
 
-    private UUID owerId;
+    private UUID ownerId;
     private String currency;
     private BigDecimal amount;
 

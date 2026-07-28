@@ -7,7 +7,6 @@ import com.rubencamero.finflow.domain.entity.Wallet;
 import com.rubencamero.finflow.domain.valueobject.Money;
 import com.rubencamero.finflow.domain.valueobject.OwnerId;
 import com.rubencamero.finflow.domain.valueobject.WalletId;
-import com.rubencamero.finflow.domain.valueobject.WalletStatus;
 import com.rubencamero.finflow.infrastructure.api.dto.CreateWalletRequest;
 import com.rubencamero.finflow.infrastructure.api.dto.DepositRequest;
 import com.rubencamero.finflow.infrastructure.api.dto.WithdrawRequest;
@@ -26,7 +25,7 @@ public class WalletApiMapper {
                 request.amount()
         );
 
-        return new CreateWalletCommand(ownerId, initialBalance, WalletStatus.ACTIVE);
+        return new CreateWalletCommand(ownerId, initialBalance);
     }
 
     // DTO → Command (para depositar)

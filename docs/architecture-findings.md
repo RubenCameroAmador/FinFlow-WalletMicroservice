@@ -1,6 +1,6 @@
-# Revisión de arquitectura — hallazgos (2026-07-28)
+# Revisión de arquitectura — hallazgos (creado 2026-07-28, actualizado 2026-07-28)
 
-Notas de una revisión puntual del estado del proyecto (dominio `Wallet` + aplicación + infraestructura), guardadas para retomarlas más adelante. No implican que algo esté roto de forma crítica salvo el punto 1, que bloquea arrancar la app.
+Notas de una revisión puntual del estado del proyecto (dominio `Wallet` + aplicación + infraestructura), guardadas para retomarlas más adelante.
 
 ## Lo que está bien logrado
 
@@ -10,19 +10,29 @@ Notas de una revisión puntual del estado del proyecto (dominio `Wallet` + aplic
 - `Wallet.reconstitute(...)` rehidrata desde BD sin relanzar eventos — comportamiento correcto para un aggregate.
 - Patrón *event collection* (`addEvent` / `pullEvents()`) implementado correctamente en `Wallet`.
 
-## Pendientes a revisar
+## Resuelto
 
-1. **La app probablemente no arranca aún**: `WalletController` pide los 6 casos de uso por constructor, pero ninguno es bean de Spring (`@Component`/`@Service`) ni hay `@Bean` para ellos en `FinflowApiApplication`. Tampoco existe ninguna implementación del puerto `DomainEventPublisher` — el puerto está definido (`application/port/DomainEventPublisher.java`) pero sin adaptador. Solo `WalletRepository` está cableado manualmente.
-2. **Bug real en `withdraw`**: `Money.subtract` lanza `IllegalArgumentException` si el resultado es negativo, *antes* de que `Wallet.withdraw` llegue a comprobar `newBalance.isNegative()` para lanzar su propio `InvalidWalletException("Insufficient balance.")`. Esa rama de "saldo insuficiente" nunca se ejecuta en la práctica.
-3. **`deposit()` no bloquea wallets `FROZEN`**, a diferencia de `withdraw()` que sí lo hace — inconsistencia de invariante (puede ser intencional, decidirlo conscientemente).
-4. **`WalletId`/`OwnerId` no sobreescriben `equals`/`hashCode`**, a diferencia de `Money` — inconsistente entre value objects.
-5. **Typo**: campo `owerId` en `WalletEntity` y `WalletMapper` (debería ser `ownerId`).
-6. **Sin `@ControllerAdvice`**: cualquier `InvalidWalletException` se traduce en un 500 genérico en vez de 404/409/400.
-7. **`spring-boot-starter-validation` está en el `pom.xml` pero no se usa** en ningún DTO.
-8. **El invariante "toda wallet nueva empieza ACTIVE"** vive en `WalletApiMapper` (infraestructura), no en el dominio — el constructor de `Wallet` acepta cualquier estado inicial.
-9. **`@GeneratedValue(IDENTITY)` sobre una PK UUID** que la app siempre pre-asigna (`WalletEntity`) — probablemente vestigial.
-10. **Sin tests** más allá del `contextLoads()` por defecto de Spring Boot.
+1. **Cableado de Spring (bloqueaba el arranque).** Los 6 use cases ahora son `@Service`, y se implementó `KafkaDomainEventPublisher` (adaptador real de `DomainEventPublisher`, ver [kafka-integration.md](./kafka-integration.md)), cableado como `@Bean` en `FinflowApiApplication`. Confirmado end-to-end: la app arranca, se pudo crear una wallet y depositar dinero.
+2. **Sin manejo global de excepciones.** Se creó `infrastructure/api/exception/` con `ErrorResponse` (DTO) y `WalletExceptionHandler` (`@RestControllerAdvice`), que intercepta `InvalidWalletException` y devuelve `409 Conflict` con un JSON estructurado en vez del 500 genérico. Sigue pendiente la granularidad fina (ver más abajo).
+3. **`@GeneratedValue(IDENTITY)` sobre PK UUID.** Se quitó — ahora `WalletEntity.walletId` solo tiene `@Id`. Esto en realidad causaba que la tabla `wallets` nunca se creara (Postgres rechaza `IDENTITY` sobre columnas no numéricas), y por eso salía `relation "wallets" does not exist` al hacer el primer `POST`.
+4. **Integración con Kafka funcionando end-to-end.** Publicación de domain events (`WalletCreated`, `MoneyDeposited`, etc.) traducidos a integration events (`infrastructure/messaging/event/`) vía `WalletEventMapper`, publicados al topic `wallet-events` (key = `walletId`) desde `KafkaDomainEventPublisher`. Dos gotchas específicos de Spring Boot 4.1 que costó diagnosticar, documentados aquí para no repetirlos:
+   - La autoconfiguración de Kafka (que crea el bean `KafkaTemplate`) vive en un módulo separado, `spring-boot-starter-kafka` — depender solo de `spring-kafka` no alcanza.
+   - El `KafkaTemplate` autoconfigurado es `KafkaTemplate<Object, Object>` (no `<String, Object>`) — hay que matchear ese tipo genérico exacto en los puntos de inyección.
+   - El `JsonSerializer` clásico de Spring Kafka depende de Jackson 2 (`com.fasterxml.jackson.databind`), pero Spring Boot 4.1 trae Jackson 3 (`tools.jackson.*`) por defecto — hay que usar `JacksonJsonSerializer` en su lugar.
+5. **Bug en `withdraw` (saldo insuficiente nunca se detectaba).** `Money.subtract` construía un `Money` con el resultado negativo, y el constructor de `Money` lanzaba `IllegalArgumentException` antes de que `Wallet.withdraw` pudiera comprobar `newBalance.isNegative()` y lanzar su propio `InvalidWalletException("Insufficient balance.")` — esa rama nunca se ejecutaba. Se agregó `Money.isLessThan(Money other)`, y `withdraw` ahora valida `this.balance.isLessThan(amount)` **antes** de restar, evitando construir un `Money` negativo. De paso, esto también cierra el hueco con `WalletExceptionHandler`: antes, un retiro con saldo insuficiente daba 500 (porque `IllegalArgumentException` no está mapeada por el `@RestControllerAdvice`); ahora da `409 Conflict` como corresponde.
+6. **Swagger/OpenAPI confirmado funcionando.** `springdoc-openapi-starter-webmvc-ui:2.8.6` arranca sin problemas sobre Spring Boot 4.1 / Spring Framework 7, pese a no tener soporte declarado explícitamente para esa versión.
+7. **`WalletId`/`OwnerId` no sobreescribían `equals`/`hashCode`.** Se agregó el mismo patrón que ya tenía `Money` (comparar por el `UUID` interno). Sin esto, dos instancias envolviendo el mismo UUID se consideraban "distintas" (comparación por referencia), lo cual rompía silenciosamente cualquier uso en `Set`/`Map` o comparaciones directas — ver explicación completa en la conversación de esta fecha.
+8. **Typo `owerId`**: corregido en `WalletEntity` y `WalletMapper` — ahora `ownerId` en ambos.
+9. **Invariante "toda wallet nueva empieza ACTIVE" movido al dominio.** El constructor de `Wallet` ya no acepta `status` — siempre asigna `WalletStatus.ACTIVE` internamente, así que es imposible construir una wallet nueva en otro estado (antes el constructor lo permitía, aunque nadie lo hiciera en la práctica). Se quitó el campo `status` de `CreateWalletCommand` y la línea que lo fabricaba en `WalletApiMapper` (junto al import de `WalletStatus`, ya sin uso ahí). El contrato externo (`CreateWalletRequest`) no cambia — nunca tuvo ese campo.
+
+## Pendiente
+
+1. **`spring-boot-starter-validation` está en el `pom.xml` pero no se usa** en ningún DTO.
+2. **Sin tests** más allá del `contextLoads()` por defecto de Spring Boot.
+3. **`InvalidWalletException` sigue siendo un único tipo genérico** para todos los errores de negocio (wallet no encontrada, ya congelada, ya activa, saldo insuficiente...). Por eso `WalletExceptionHandler` mapea *todo* a `409 Conflict`, incluso "wallet no encontrada", que semánticamente debería ser `404 Not Found`. Para distinguirlo bien haría falta una jerarquía de excepciones de dominio (ej. `WalletNotFoundException` separada).
+
+**Nota de corrección:** el hallazgo original "`deposit()` no bloquea wallets `FROZEN`" era incorrecto — se revisó `Wallet.java` y `deposit()` sí valida `FROZEN` (líneas 93-97), igual que `withdraw()`. Quedó descartado, no era un bug real.
 
 ## Cuándo retomar esto
 
-El punto 1 (cableado de Spring) es el único que probablemente impide levantar el servicio; conviene resolverlo antes o junto con la integración de Kafka (ver [kafka-integration.md](./kafka-integration.md)), ya que el `DomainEventPublisher` es justo el puerto que un adaptador de Kafka implementaría.
+Ya no hay ningún bloqueante para correr el servicio, ni bugs funcionales conocidos. Lo que queda es deuda de calidad (puntos 1-3 de "Pendiente"). Buen candidato para la próxima sesión: la jerarquía de excepciones de dominio (punto 3), que además mejora el `WalletExceptionHandler` ya existente.

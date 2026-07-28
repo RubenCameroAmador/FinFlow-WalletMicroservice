@@ -21,4 +21,17 @@ public final class OwnerId {
     public UUID value() {
         return value;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (other == null || getClass() != other.getClass()) return false;
+        OwnerId ownerId = (OwnerId) other;
+        return Objects.equals(value, ownerId.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
+    }
 }

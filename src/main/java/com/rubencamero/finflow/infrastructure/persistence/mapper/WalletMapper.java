@@ -13,7 +13,7 @@ public class WalletMapper {
     public static WalletEntity toEntity(Wallet wallet) {
         return WalletEntity.builder()
                 .walletId(wallet.getId().value())
-                .owerId(wallet.getOwnerId().value())
+                .ownerId(wallet.getOwnerId().value())
                 .amount(wallet.getBalance().amount())
                 .currency(wallet.getBalance().currency().getCurrencyCode())
                 .status(wallet.getStatus())
@@ -29,7 +29,7 @@ public class WalletMapper {
 
         return Wallet.reconstitute(
                 WalletId.of(entity.getWalletId()),
-                OwnerId.of(entity.getOwerId()),
+                OwnerId.of(entity.getOwnerId()),
                 balance,
                 entity.getStatus(),
                 entity.getCreatedAt()

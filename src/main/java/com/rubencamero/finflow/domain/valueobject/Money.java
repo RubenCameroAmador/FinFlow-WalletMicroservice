@@ -39,6 +39,11 @@ public class Money {
         return amount.compareTo(BigDecimal.ZERO) < 0;
     }
 
+    public boolean isLessThan(Money other){
+        validateSameCurrency(other);
+        return this.amount.compareTo(other.amount) < 0;
+    }
+
     public boolean isZero(){
         return amount.compareTo(BigDecimal.ZERO) == 0;
     }
