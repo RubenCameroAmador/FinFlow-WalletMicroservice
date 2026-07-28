@@ -96,8 +96,9 @@ public class Wallet {
             )   ;
         }
 
-        this.balance = this.balance.add(amount);
+        Money newBalance = this.balance.add(amount);
         addEvent(new MoneyDeposited(this.id, this.ownerId, this.balance, amount));
+        this.balance = newBalance;
     }
 
     public void withdraw(Money amount){
