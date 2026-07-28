@@ -90,8 +90,14 @@ public class Wallet {
 
     public void deposit(Money amount){
 
-        addEvent(new MoneyDeposited(this.id, this.ownerId, this.balance, amount));
+        if (this.status == WalletStatus.FROZEN){
+            throw new InvalidWalletException(
+                    "Wallet is Frozen, you can not deposit money"
+            )   ;
+        }
+
         this.balance = this.balance.add(amount);
+        addEvent(new MoneyDeposited(this.id, this.ownerId, this.balance, amount));
     }
 
     public void withdraw(Money amount){
