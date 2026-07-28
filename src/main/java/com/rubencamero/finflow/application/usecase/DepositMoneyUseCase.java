@@ -5,7 +5,9 @@ import com.rubencamero.finflow.application.port.DomainEventPublisher;
 import com.rubencamero.finflow.application.port.WalletRepository;
 import com.rubencamero.finflow.domain.entity.Wallet;
 import com.rubencamero.finflow.domain.exception.InvalidWalletException;
+import org.springframework.stereotype.Service;
 
+@Service
 public class DepositMoneyUseCase {
     private final WalletRepository walletRepository;
     private final DomainEventPublisher domainEventPublisher;

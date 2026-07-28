@@ -17,7 +17,6 @@ import java.util.UUID;
 @Builder
 public class WalletEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private UUID walletId;
 
     private UUID owerId;

@@ -4,7 +4,9 @@ import com.rubencamero.finflow.application.command.GetWalletQuery;
 import com.rubencamero.finflow.application.port.WalletRepository;
 import com.rubencamero.finflow.domain.entity.Wallet;
 import com.rubencamero.finflow.domain.exception.InvalidWalletException;
+import org.springframework.stereotype.Service;
 
+@Service
 public class GetWalletUseCase {
     private final WalletRepository walletRepository;
 
